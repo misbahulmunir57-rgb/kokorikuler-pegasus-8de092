@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Penilaian Kokurikuler Siswa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+    <nav class="bg-indigo-700 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-graduation-cap text-2xl text-amber-300"></i>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Penilaian Kokurikuler</h1>
+                    <p class="text-xs text-indigo-200">Kelas 7, 8, & 9 — Pembiasaan Pagi & Kebersihan (Predikat Terpisah)</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 bg-indigo-800 p-1 rounded-lg border border-indigo-600">
+                <button id="btn-role-guru" onclick="switchRole('guru')" class="px-3 py-1.5 rounded-md text-xs font-semibold transition bg-amber-400 text-indigo-950 shadow">
+                    <i class="fa-solid fa-user-graduate mr-1"></i> Mode Guru
+                </button>
+                <button id="btn-role-operator" onclick="switchRole('operator')" class="px-3 py-1.5 rounded-md text-xs font-semibold text-indigo-200 hover:text-white transition">
+                    <i class="fa-solid fa-user-gear mr-1"></i> Operator
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+
+        <!-- VIEW GURU -->
+        <section id="view-guru" class="space-y-6">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-base font-bold text-slate-800 mb-4 flex items-center">
+                    <i class="fa-solid fa-clipboard-list text-indigo-600 mr-2"></i> Form Input Penilaian Kokurikuler Harian
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Tanggal Kegiatan</label>
+                        <input type="date" id="guru-tanggal" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Guru Penanggung Jawab (PJ)</label>
+                        <input type="text" id="guru-pj" placeholder="Nama Guru PJ..." class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Kelas</label>
+                        <select id="guru-kelas" onchange="renderGuruSiswaTable()" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-indigo-700 bg-indigo-50">
+                            <option value="7">Kelas 7</option>
+                            <option value="8">Kelas 8</option>
+                            <option value="9">Kelas 9</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-100 border-b border-slate-200 flex flex-wrap justify-between items-center gap-2">
+                    <div>
+                        <h3 class="font-bold text-sm text-slate-800">Daftar Siswa & Penilaian Kokurikuler</h3>
+                        <p class="text-xs text-slate-500">Skala Nilai 1-4. Nilai Konversi (0-100) dan Predikat dipisah antara Pembiasaan & Kebersihan.</p>
+                    </div>
+                    <button onclick="simpanSemuaNilaiGuru()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition flex items-center">
+                        <i class="fa-solid fa-floppy-disk mr-1.5"></i> Simpan Penilaian Kelas
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-indigo-900 text-white font-bold border-b border-indigo-800">
+                                <th class="p-3 w-10 text-center" rowspan="2">No</th>
+                                <th class="p-3 min-w-[150px]" rowspan="2">Nama Siswa</th>
+                                <th class="p-2 text-center bg-indigo-800 text-indigo-100 border-r border-indigo-700" colspan="6">
+                                    <i class="fa-solid fa-sun mr-1"></i> PEMBIASAAN PAGI (07.00 - 07.20 WIB)
+                                </th>
+                                <th class="p-2 text-center bg-emerald-800 text-emerald-100" colspan="7">
+                                    <i class="fa-solid fa-broom mr-1"></i> KEBERSIHAN SISWA
+                                </th>
+                            </tr>
+                            <tr class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 text-[11px]">
+                                <!-- Pembiasaan Kriteria -->
+                                <th class="p-2 text-center w-12 bg-indigo-50">Adab</th>
+                                <th class="p-2 text-center w-12 bg-indigo-50">Makhroj</th>
+                                <th class="p-2 text-center w-12 bg-indigo-50">Tertib</th>
+                                <th class="p-2 text-center w-12 bg-indigo-100 font-bold">Rata</th>
+                                <th class="p-2 text-center w-14 bg-indigo-100 font-bold">Nilai</th>
+                                <th class="p-2 text-center w-16 bg-indigo-100 border-r border-indigo-200 font-bold">Predikat</th>
+                                
+                                <!-- Kebersihan Kriteria -->
+                                <th class="p-2 text-center w-12 bg-emerald-50">Duduk</th>
+                                <th class="p-2 text-center w-12 bg-emerald-50">Piket</th>
+                                <th class="p-2 text-center w-12 bg-emerald-50">Atribut</th>
+                                <th class="p-2 text-center w-12 bg-emerald-50">Kelas</th>
+                                <th class="p-2 text-center w-12 bg-emerald-100 font-bold">Rata</th>
+                                <th class="p-2 text-center w-14 bg-emerald-100 font-bold">Nilai</th>
+                                <th class="p-2 text-center w-16 bg-emerald-100 font-bold">Predikat</th>
+                            </tr>
+                        </thead>
+                        <tbody id="guru-siswa-list" class="divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW OPERATOR -->
+        <section id="view-operator" class="hidden space-y-6">
+            <div id="operator-login" class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-md border border-slate-200 text-center space-y-4">
+                <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-xl">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h3 class="font-bold text-base text-slate-800">Akses Operator / Admin</h3>
+                <p class="text-xs text-slate-500">Masukkan PIN Keamanan untuk membuka fitur kelola data siswa & rekapitulasi.</p>
+                <input type="password" id="operator-pin" placeholder="PIN Operator (Default: 1234)" class="w-full border border-slate-300 rounded-lg p-2.5 text-center font-bold tracking-widest text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                <button onclick="loginOperator()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg text-xs shadow transition">
+                    Masuk Panel Operator
+                </button>
+            </div>
+
+            <div id="operator-panel" class="hidden space-y-6">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                    <div class="flex justify-between items-center border-b pb-3">
+                        <h3 class="font-bold text-sm text-slate-800 flex items-center">
+                            <i class="fa-solid fa-user-plus text-indigo-600 mr-2"></i> Kelola Master Data Siswa
+                        </h3>
+                        <div class="flex space-x-2">
+                            <select id="operator-kelas" onchange="renderOperatorSiswaTable()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50">
+                                <option value="7">Kelas 7</option>
+                                <option value="8">Kelas 8</option>
+                                <option value="9">Kelas 9</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <input type="text" id="input-nama-siswa" placeholder="Masukkan nama siswa baru..." class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <button onclick="tambahSiswa()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition">
+                            <i class="fa-solid fa-plus mr-1"></i> Tambah Siswa
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100 font-bold text-slate-700 border-b border-slate-200">
+                                <tr>
+                                    <th class="p-3 w-12 text-center">No</th>
+                                    <th class="p-3">Nama Siswa</th>
+                                    <th class="p-3 w-20 text-center">Kelas</th>
+                                    <th class="p-3 w-28 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="operator-siswa-list" class="divide-y divide-slate-100">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                    <h3 class="font-bold text-sm text-slate-800 flex items-center border-b pb-3">
+                        <i class="fa-solid fa-clock-rotate-left text-indigo-600 mr-2"></i> Rekapitulasi Penilaian Kokurikuler Siswa
+                    </h3>
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100 font-bold text-slate-700 border-b border-slate-200">
+                                <tr>
+                                    <th class="p-3">Tanggal</th>
+                                    <th class="p-3">Kelas</th>
+                                    <th class="p-3">Guru PJ</th>
+                                    <th class="p-3">Nama Siswa</th>
+                                    <th class="p-3 text-center bg-indigo-50 border-x">Pembiasaan (Nilai & Predikat)</th>
+                                    <th class="p-3 text-center bg-emerald-50">Kebersihan (Nilai & Predikat)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rekap-penilaian-list" class="divide-y divide-slate-100">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDummyKeyForFirestoreOfflineSupport",
+            authDomain: "kokurikuler-app.firebaseapp.com",
+            projectId: "kokurikuler-app",
+            storageBucket: "kokurikuler-app.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef123456"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        db.enablePersistence({synchronizeTabs: true}).catch(() => {});
+
+        let masterSiswa = JSON.parse(localStorage.getItem('masterSiswa')) || [
+            { id: 1, nama: "Ahmad Dahlan", kelas: "7" },
+            { id: 2, nama: "Siti Walidah", kelas: "7" },
+            { id: 3, nama: "Budi Santoso", kelas: "8" },
+            { id: 4, nama: "Dewi Sartika", kelas: "8" },
+            { id: 5, nama: "Khairil Anwar", kelas: "9" }
+        ];
+
+        let dataPenilaian = JSON.parse(localStorage.getItem('dataPenilaian')) || [];
+
+        document.getElementById('guru-tanggal').valueAsDate = new Date();
+
+        function switchRole(role) {
+            const btnGuru = document.getElementById('btn-role-guru');
+            const btnOp = document.getElementById('btn-role-operator');
+            const viewGuru = document.getElementById('view-guru');
+            const viewOp = document.getElementById('view-operator');
+
+            if (role === 'guru') {
+                btnGuru.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition bg-amber-400 text-indigo-950 shadow";
+                btnOp.className = "px-3 py-1.5 rounded-md text-xs font-semibold text-indigo-200 hover:text-white transition";
+                viewGuru.classList.remove('hidden');
+                viewOp.classList.add('hidden');
+                renderGuruSiswaTable();
+            } else {
+                btnOp.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition bg-amber-400 text-indigo-950 shadow";
+                btnGuru.className = "px-3 py-1.5 rounded-md text-xs font-semibold text-indigo-200 hover:text-white transition";
+                viewGuru.classList.add('hidden');
+                viewOp.classList.remove('hidden');
+            }
+        }
+
+        function loginOperator() {
+            const pin = document.getElementById('operator-pin').value;
+            if (pin === '1234') {
+                document.getElementById('operator-login').classList.add('hidden');
+                document.getElementById('operator-panel').classList.remove('hidden');
+                renderOperatorSiswaTable();
+                renderRekapTable();
+            } else {
+                alert('PIN Salah! (Gunakan PIN default: 1234)');
+            }
+        }
+
+        function getPredikatBadge(konversi) {
+            if (konversi >= 90) return { code: "SB", label: "Sangat Berkembang", class: "bg-emerald-100 text-emerald-800 border-emerald-300" };
+            if (konversi >= 75) return { code: "BSH", label: "Berkembang Sesuai Harapan", class: "bg-blue-100 text-blue-800 border-blue-300" };
+            if (konversi >= 60) return { code: "SK", label: "Sedang Berkembang", class: "bg-amber-100 text-amber-800 border-amber-300" };
+            return { code: "MB", label: "Mulai Berkembang", class: "bg-rose-100 text-rose-800 border-rose-300" };
+        }
+
+        function renderGuruSiswaTable() {
+            const kelas = document.getElementById('guru-kelas').value;
+            const tbody = document.getElementById('guru-siswa-list');
+            const filteredSiswa = masterSiswa.filter(s => s.kelas === kelas);
+
+            tbody.innerHTML = '';
+
+            if (filteredSiswa.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="15" class="p-4 text-center text-slate-400">Belum ada data siswa di Kelas ${kelas}. Tambahkan via Panel Operator.</td></tr>`;
+                return;
+            }
+
+            filteredSiswa.forEach((siswa, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-2 text-center font-bold text-slate-400">${index + 1}</td>
+                    <td class="p-2 font-semibold text-slate-800">${siswa.nama}</td>
+                    
+                    <!-- Input Pembiasaan -->
+                    <td class="p-1"><input type="number" min="1" max="4" value="4" onchange="hitungNilaiRow(${siswa.id})" id="p1_${siswa.id}" class="w-full text-center border border-slate-300 rounded p-1 font-semibold text-indigo-700"></td>
+                    <td class="p-1"><input type="number" min="1" max="4" value="4" onchange="hitungNilaiRow(${siswa.id})" id="p2_${siswa.id}" class="w-full text-center border border-slate-300 rounded p-1 font-semibold text-indigo-700"></td>
+                    <td class="p-1"><input type="number" min="1" max="4" value="4" onchange="hitungNilaiRow(${siswa.id})" id="p3_${siswa.id}" class="w-full text-center border border-slate-300 rounded p-1 font-semibold text-indigo-700"></td>
+                    <td class="p-2 text-center font-bold text-slate-700 bg-indigo-50" id="p_rata_${siswa.id}">4.0</td>
+                    <td class="p-2 text-center font-bold text-indigo-700 bg-indigo-50" id="p_konversi_${siswa.id}">100</td>
+                    <td class="p-2 text-center border-r border-indigo-100 bg-indigo-50" id="p_predikat_${siswa.id}"></td>
+
+                    <!-- Input Kebersihan -->
+                    <td class="p-1"><input type="number" min="1" max="4" value="4" onchange="hitungNilaiRow(${siswa.id})" id="k1_${siswa.id}" class="w-full text-center border border-slate-300 rounded p-1 font-semibold text-emerald-700"></td>
+                    <td class="p-1"><input type="number" min="1" max="4" value="4" onchange="hitungNilaiRow(${siswa.id})" id="k2_${siswa.id}" class="w-full text-center border border-slate-300 rounded p-1 font-semibold text-emerald-700"></td>
+                    <td class="p-1"><input type="number" min="1" max="4" value="4" onchange="hitungNilaiRow(${siswa.id})" id="k3_${siswa.id}" class="w-full text-center border border-slate-300 rounded p-1 font-semibold text-emerald-700"></td>
+                    <td class="p-1"><input type="number" min="1" max="4" value="4" onchange="hitungNilaiRow(${siswa.id})" id="k4_${siswa.id}" class="w-full text-center border border-slate-300 rounded p-1 font-semibold text-emerald-700"></td>
+                    <td class="p-2 text-center font-bold text-slate-700 bg-emerald-50" id="k_rata_${siswa.id}">4.0</td>
+                    <td class="p-2 text-center font-bold text-emerald-700 bg-emerald-50" id="k_konversi_${siswa.id}">100</td>
+                    <td class="p-2 text-center bg-emerald-50" id="k_predikat_${siswa.id}"></td>
+                `;
+                tbody.appendChild(tr);
+                hitungNilaiRow(siswa.id);
+            });
+        }
+
+        function hitungNilaiRow(siswaId) {
+            // Hitung Pembiasaan Pagi (3 Kriteria)
+            const p1 = parseFloat(document.getElementById(`p1_${siswaId}`)?.value || 0);
+            const p2 = parseFloat(document.getElementById(`p2_${siswaId}`)?.value || 0);
+            const p3 = parseFloat(document.getElementById(`p3_${siswaId}`)?.value || 0);
+            const pRata = (p1 + p2 + p3) / 3;
+            const pKonversi = Math.round((pRata / 4) * 100);
+            const pPred = getPredikatBadge(pKonversi);
+
+            document.getElementById(`p_rata_${siswaId}`).innerText = pRata.toFixed(1);
+            document.getElementById(`p_konversi_${siswaId}`).innerText = pKonversi;
+            document.getElementById(`p_predikat_${siswaId}`).innerHTML = `<span class="${pPred.class} text-[10px] px-2 py-0.5 rounded-full font-bold border">${pPred.code}</span>`;
+
+            // Hitung Kebersihan Siswa (4 Kriteria)
+            const k1 = parseFloat(document.getElementById(`k1_${siswaId}`)?.value || 0);
+            const k2 = parseFloat(document.getElementById(`k2_${siswaId}`)?.value || 0);
+            const k3 = parseFloat(document.getElementById(`k3_${siswaId}`)?.value || 0);
+            const k4 = parseFloat(document.getElementById(`k4_${siswaId}`)?.value || 0);
+            const kRata = (k1 + k2 + k3 + k4) / 4;
+            const kKonversi = Math.round((kRata / 4) * 100);
+            const kPred = getPredikatBadge(kKonversi);
+
+            document.getElementById(`k_rata_${siswaId}`).innerText = kRata.toFixed(1);
+            document.getElementById(`k_konversi_${siswaId}`).innerText = kKonversi;
+            document.getElementById(`k_predikat_${siswaId}`).innerHTML = `<span class="${kPred.class} text-[10px] px-2 py-0.5 rounded-full font-bold border">${kPred.code}</span>`;
+        }
+
+        function simpanSemuaNilaiGuru() {
+            const tanggal = document.getElementById('guru-tanggal').value;
+            const pj = document.getElementById('guru-pj').value;
+            const kelas = document.getElementById('guru-kelas').value;
+
+            if (!pj) {
+                alert('Harap isi Nama Guru Penanggung Jawab (PJ) terlebih dahulu!');
+                return;
+            }
+
+            const filteredSiswa = masterSiswa.filter(s => s.kelas === kelas);
+            filteredSiswa.forEach(siswa => {
+                const record = {
+                    tanggal,
+                    pj,
+                    kelas,
+                    namaSiswa: siswa.nama,
+                    pembiasaan: {
+                        rata: document.getElementById(`p_rata_${siswa.id}`).innerText,
+                        konversi: document.getElementById(`p_konversi_${siswa.id}`).innerText,
+                        predikat: document.getElementById(`p_predikat_${siswa.id}`).innerText.trim()
+                    },
+                    kebersihan: {
+                        rata: document.getElementById(`k_rata_${siswa.id}`).innerText,
+                        konversi: document.getElementById(`k_konversi_${siswa.id}`).innerText,
+                        predikat: document.getElementById(`k_predikat_${siswa.id}`).innerText.trim()
+                    }
+                };
+                dataPenilaian.push(record);
+            });
+
+            localStorage.setItem('dataPenilaian', JSON.stringify(dataPenilaian));
+            alert(`Berhasil menyimpan penilaian Kelas ${kelas} tanggal ${tanggal}!`);
+            renderRekapTable();
+        }
+
+        function renderOperatorSiswaTable() {
+            const kelas = document.getElementById('operator-kelas').value;
+            const tbody = document.getElementById('operator-siswa-list');
+            const filteredSiswa = masterSiswa.filter(s => s.kelas === kelas);
+
+            tbody.innerHTML = '';
+            filteredSiswa.forEach((siswa, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-3 text-center text-slate-400 font-bold">${index + 1}</td>
+                    <td class="p-3 font-semibold text-slate-800">${siswa.nama}</td>
+                    <td class="p-3 text-center font-bold text-indigo-600">Kelas ${siswa.kelas}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="hapusSiswa(${siswa.id})" class="text-rose-600 hover:text-rose-800 font-semibold text-xs">
+                            <i class="fa-solid fa-trash mr-1"></i> Hapus
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function tambahSiswa() {
+            const nama = document.getElementById('input-nama-siswa').value;
+            const kelas = document.getElementById('operator-kelas').value;
+
+            if (!nama) return alert('Nama siswa wajib diisi!');
+
+            const newSiswa = { id: Date.now(), nama, kelas };
+            masterSiswa.push(newSiswa);
+            localStorage.setItem('masterSiswa', JSON.stringify(masterSiswa));
+            document.getElementById('input-nama-siswa').value = '';
+            renderOperatorSiswaTable();
+        }
+
+        function hapusSiswa(id) {
+            if (confirm('Yakin ingin menghapus siswa ini?')) {
+                masterSiswa = masterSiswa.filter(s => s.id !== id);
+                localStorage.setItem('masterSiswa', JSON.stringify(masterSiswa));
+                renderOperatorSiswaTable();
+            }
+        }
+
+        function renderRekapTable() {
+            const tbody = document.getElementById('rekap-penilaian-list');
+            tbody.innerHTML = '';
+
+            if (dataPenilaian.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Belum ada riwayat penilaian.</td></tr>`;
+                return;
+            }
+
+            dataPenilaian.slice(-15).reverse().forEach(row => {
+                const pBadge = getPredikatBadge(parseInt(row.pembiasaan.konversi));
+                const kBadge = getPredikatBadge(parseInt(row.kebersihan.konversi));
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-3 font-medium text-slate-600">${row.tanggal}</td>
+                    <td class="p-3 font-bold text-indigo-600">Kelas ${row.kelas}</td>
+                    <td class="p-3 text-slate-700">${row.pj}</td>
+                    <td class="p-3 font-semibold text-slate-800">${row.namaSiswa}</td>
+                    <td class="p-3 text-center bg-indigo-50/50 border-x">
+                        <span class="font-bold text-indigo-700 mr-2">${row.pembiasaan.konversi}</span>
+                        <span class="${pBadge.class} text-[10px] px-2 py-0.5 rounded-full font-bold border">${row.pembiasaan.predikat}</span>
+                    </td>
+                    <td class="p-3 text-center bg-emerald-50/50">
+                        <span class="font-bold text-emerald-700 mr-2">${row.kebersihan.konversi}</span>
+                        <span class="${kBadge.class} text-[10px] px-2 py-0.5 rounded-full font-bold border">${row.kebersihan.predikat}</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        renderGuruSiswaTable();
+    </script>
+</body>
+</html>
